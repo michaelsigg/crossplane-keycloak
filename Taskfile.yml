@@ -1,0 +1,80 @@
+version: '3'
+
+includes:
+  base:
+    taskfile: https://gist.githubusercontent.com/michaelsigg/f0582c84212d0814ba37e6ef228a7b77/raw/b56613c7da4536c74f970158fb34ca437cdf79d4/Taskfile.yml
+    flatten: true
+
+vars:
+  CLUSTER_NAME: crossplane-keycloak
+  IP_START: 90
+  KEYCLOAK_FQDN: keycloak-172-18-0-90.sslip.io
+
+tasks:
+
+  setup-cluster:
+    desc: Setup the base cluster
+    cmds:
+      - task: setup-base-cluster
+      - task: deploy-cert-manager
+      - task: deploy-keycloak
+      - task: deploy-crossplane
+      - task: deploy-crossplane-functions
+      - task: deploy-crossplane-provider-keycloak
+      - task: get-argocd-login-info
+
+  deploy-cert-manager:
+    desc: Deploy cert-manager with cluster issuer
+    internal: false
+    cmds:
+      - kubectl apply -f argocd_apps/cert-manager.yaml
+      - kubectl wait --namespace argocd --for='jsonpath={.status.health.status}=Healthy' applications.argoproj.io/cert-manager --timeout=120s
+      - kubectl wait --namespace cert-manager --for=create secret localca --timeout=120s
+
+  deploy-keycloak:
+    desc: Deploy keycloak
+    internal: false
+    vars:
+      INGRESS_IP:
+        sh: kubectl get svc -n kube-system cilium-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+      KEYCLOAK_FQDN: 'keycloak-{{ .INGRESS_IP | replace "." "-"}}.sslip.io'
+    cmds:
+      - yq -i '.spec.source.helm.valuesObject.ingress.hostname = "{{.KEYCLOAK_FQDN}}"' argocd_apps/keycloak.yaml
+      - kubectl create namespace keycloak || true
+      - kubectl create secret -n keycloak generic local-ca --from-literal=ca.pem="$(kubectl get secret localca -n cert-manager -o jsonpath='{.data.ca\.crt}' | base64 -d)" || true
+      - kubectl apply -f argocd_apps/keycloak.yaml
+      - kubectl wait --namespace argocd --for='jsonpath={.status.health.status}=Healthy' applications.argoproj.io/keycloak --timeout=600s
+      - kubectl wait --namespace argocd --for='jsonpath={.status.sync.status}=Synced' applications.argoproj.io/keycloak --timeout=600s
+
+  deploy-crossplane:
+    desc: Deploy crossplane
+    cmds:
+      - kubectl apply -f argocd_apps/crossplane.yaml
+      - kubectl wait --namespace argocd --for='jsonpath={.status.health.status}=Healthy' applications.argoproj.io/crossplane --timeout=120s
+      - kubectl wait --namespace argocd --for='jsonpath={.status.sync.status}=Synced' applications.argoproj.io/crossplane --timeout=120s
+      - kubectl wait --namespace crossplane-system --for=condition=ready --timeout=90s pods -l app.kubernetes.io/instance=crossplane
+
+  deploy-crossplane-functions:
+    desc: Deploy crossplane functions
+    cmds:
+      - kubectl apply -f argocd_apps/crossplane-functions.yaml
+      - kubectl wait --namespace argocd --for='jsonpath={.status.health.status}=Healthy' applications.argoproj.io/crossplane-functions --timeout=120s
+      - kubectl wait --namespace argocd --for='jsonpath={.status.sync.status}=Synced' applications.argoproj.io/crossplane-functions --timeout=120s
+      - sleep 5
+      - kubectl wait --namespace crossplane-system --for=condition=ready --timeout=90s pods -l pkg.crossplane.io/function=function-go-templating
+      - kubectl wait --namespace crossplane-system --for=condition=ready --timeout=90s pods -l pkg.crossplane.io/function=function-auto-ready
+
+  deploy-crossplane-provider-keycloak:
+    desc: Deploy crossplane provider keycloak
+    internal: true
+    vars:
+      INGRESS_IP:
+        sh: kubectl get svc -n kube-system cilium-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+      KEYCLOAK_FQDN: 'keycloak-{{ .INGRESS_IP | replace "." "-"}}.sslip.io'
+    cmds:
+      - yq -i '.spec.source.helm.valuesObject.resources[0].stringData.url = "https://{{.KEYCLOAK_FQDN}}"' argocd_apps/crossplane-provider-keycloak.yaml
+      - kubectl apply -f argocd_apps/crossplane-provider-keycloak.yaml
+      - sleep 10
+      - kubectl wait --namespace argocd --for='jsonpath={.status.health.status}=Healthy' applications.argoproj.io/crossplane-provider-keycloak --timeout=120s
+      - kubectl wait --namespace argocd --for='jsonpath={.status.sync.status}=Synced' applications.argoproj.io/crossplane-provider-keycloak --timeout=120s
+

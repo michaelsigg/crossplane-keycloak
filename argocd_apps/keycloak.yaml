@@ -1,0 +1,69 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: keycloak
+  namespace: argocd
+spec:
+  destination:
+    namespace: keycloak
+    server: https://kubernetes.default.svc
+  project: default
+  source:
+    chart: keycloak
+    repoURL: https://charts.bitnami.com/bitnami
+    targetRevision: 24.2.0
+    helm:
+      releaseName: keycloak
+      valuesObject:
+        customCaExistingSecret: local-ca
+        proxy: edge
+        auth:
+          adminUser: admin
+          existingSecret: keycloak-admin-password
+          passwordSecretKey: password
+        image:
+          repository: bitnamilegacy/keycloak
+        ingress:
+          enabled: true
+          annotations:
+            cert-manager.io/cluster-issuer: localca
+          ingressClassName: cilium
+          hostname: keycloak-172-18-0-90.sslip.io
+          path: /
+          pathType: Prefix
+          tls: true
+        postgresql:
+          image:
+            repository: bitnamilegacy/postgresql
+          enabled: true
+          auth:
+            existingSecret: keycloak-db-credentials
+        resourcesPreset: medium
+        extraDeploy:
+          - |
+            apiVersion: v1
+            kind: Secret
+            metadata:
+              name: keycloak-admin-password
+              namespace: keycloak
+            stringData:
+              password: admin
+            type: Opaque
+          - |
+            apiVersion: v1
+            kind: Secret
+            metadata:
+              name: keycloak-db-credentials
+              namespace: keycloak
+            stringData:
+              username: bn_keycloak
+              password: keycloak
+              postgres-password: keycloak
+            type: Opaque
+  syncPolicy:
+    automated:
+      prune: true
+      allowEmpty: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

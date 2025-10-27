@@ -1,0 +1,35 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: crossplane-functions
+  namespace: argocd
+spec:
+  destination:
+    namespace: crossplane-system
+    server: https://kubernetes.default.svc
+  project: default
+  source:
+    repoURL: https://bedag.github.io/helm-charts/
+    targetRevision: 2.0.0
+    chart: raw
+    helm:
+      valuesObject:
+        resources:
+          - apiVersion: pkg.crossplane.io/v1beta1
+            kind: Function
+            metadata:
+              name: function-auto-ready
+            spec:
+              package: xpkg.upbound.io/crossplane-contrib/function-auto-ready:v0.5.1
+          - apiVersion: pkg.crossplane.io/v1beta1
+            kind: Function
+            metadata:
+              name: function-go-templating
+            spec:
+              package: xpkg.upbound.io/crossplane-contrib/function-go-templating:v0.11.0
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true
+    syncOptions:
+      - CreateNamespace=true

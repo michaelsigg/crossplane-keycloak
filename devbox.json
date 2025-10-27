@@ -1,0 +1,29 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.14.0/.schema/devbox.schema.json",
+  "env": {
+    "TASK_X_REMOTE_TASKFILES": "1",
+    "TASK_X_ENV_PRECEDENCE": "1",
+    "PATH": "$PWD/bin:$PATH"
+  },
+  "packages": [
+    "kind@latest",
+    "kubectl@latest",
+    "kubernetes-helm@latest",
+    "crossplane-cli@latest",
+    "go-task@latest",
+    "cilium-cli@latest",
+    "hubble@latest",
+    "jq@latest",
+    "argocd@latest",
+    "yq-go@latest"
+  ],
+  "shell": {
+    "init_hook": [
+      "source <(kubectl completion ${SHELL##*/})",
+      "source <(helm completion ${SHELL##*/})",
+      "source <(task --completion ${SHELL##*/})",
+      "task --list-all --sort none"
+    ],
+    "scripts": {}
+  }
+}
