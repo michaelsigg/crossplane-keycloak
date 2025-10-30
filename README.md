@@ -12,7 +12,7 @@ For the playground we use [Devbox](https://www.jetify.com/docs/devbox/) and [Tas
 
 **1. Setup k8s cluster with keycloak and crossplane**
 ```bash
-task setup-base-cluster
+task setup-cluster
 ```
 
 **2. Deploy demo Keycloak Realm [examples/kc-realm.yaml](/examples/kc-realm.yaml)**
