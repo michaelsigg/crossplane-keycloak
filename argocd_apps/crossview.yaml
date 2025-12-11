@@ -1,19 +1,23 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: crossplane
+  name: crossview
   namespace: argocd
 spec:
   destination:
-    namespace: crossplane-system
+    namespace: crossview
     server: https://kubernetes.default.svc
   project: default
   source:
-    chart: crossplane
+    chart: crossview
+    repoURL: https://corpobit.github.io/crossview
+    targetRevision: 1.9.0
     helm:
-      releaseName: crossplane
-    repoURL: https://charts.crossplane.io/stable
-    targetRevision: 2.1.3
+      releaseName: crossview
+      valuesObject:
+        secrets:
+          dbPassword: your-password
+          sessionSecret: your-session-secret
   syncPolicy:
     automated:
       selfHeal: true

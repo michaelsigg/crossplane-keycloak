@@ -21,6 +21,7 @@ tasks:
       - task: deploy-crossplane
       - task: deploy-crossplane-functions
       - task: deploy-crossplane-provider-keycloak
+      - task: deploy-crossview
       - task: get-argocd-login-info
 
   deploy-cert-manager:
@@ -78,3 +79,9 @@ tasks:
       - kubectl wait --namespace argocd --for='jsonpath={.status.health.status}=Healthy' applications.argoproj.io/crossplane-provider-keycloak --timeout=120s
       - kubectl wait --namespace argocd --for='jsonpath={.status.sync.status}=Synced' applications.argoproj.io/crossplane-provider-keycloak --timeout=120s
 
+  deploy-crossview:
+    desc: Deploy crossview
+    cmds:
+      - kubectl apply -f argocd_apps/crossview.yaml
+      - kubectl wait --namespace argocd --for='jsonpath={.status.health.status}=Healthy' applications.argoproj.io/crossview --timeout=120s
+      - kubectl wait --namespace argocd --for='jsonpath={.status.sync.status}=Synced' applications.argoproj.io/crossview --timeout=120s

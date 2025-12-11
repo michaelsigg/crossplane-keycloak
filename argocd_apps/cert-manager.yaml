@@ -15,7 +15,7 @@ spec:
         valuesObject:
           installCRDs: true
       repoURL: https://charts.jetstack.io
-      targetRevision: 1.17.1
+      targetRevision: 1.19.2
     - chart: raw
       helm:
         releaseName: cert-manager-clusterissuer
